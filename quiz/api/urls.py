@@ -17,5 +17,10 @@ urlpatterns=[
     path('friends/requests/process/<int:pk>',views.ProcessFriendRequestView),
     path('friends/questions/list/',views.FriendQuestionList),
     path('friends/questions/detail/<int:pk>',views.FriendQuestionRetrive.as_view()),
-    
+    path('answers/create/<int:pk>',views.AnswerCreateView.as_view()),
+    path('answers/list/<int:pk>',views.QuestionAnswerList),
+    path('myanswers/',views.UserAnswerList),
+    path('answers/detail/<int:pk>',views.AnswerRetriveUpdateDestroyView.as_view()),
+    path('answers/process/<int:pk>',views.processAnswer),
+
 ]

@@ -32,8 +32,28 @@ class Question(models.Model):
         return self.question[:20]
 
 
-# Create your models here.
+class FriendAnswer(models.Model):
+    question=models.ForeignKey(Question,on_delete=models.CASCADE)
+    answerer=models.ForeignKey(User,on_delete=models.CASCADE)
+    answer_given=models.TextField(default="")
+    is_checked=models.BooleanField(default=False)
+    is_correct=models.BooleanField(default=False)
+    answered_at=models.DateTimeField(default=localtime)
+    is_cleaned=False
+    def clean(self):
+        self.is_cleaned = True
+        if self.answerer == self.question.user:
+            raise ValidationError("You cannot answer your own question")
+        super(FriendAnswer, self).clean()
 
+    def save(self, *args, **kwargs):
+        if not self.is_cleaned:
+            self.full_clean()
+        super(FriendAnswer, self).save(*args, **kwargs)
+
+
+    class Meta:
+        unique_together = ("question", "answerer")
 
 class Friendship(models.Model):
     # you

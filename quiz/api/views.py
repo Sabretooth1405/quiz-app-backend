@@ -1,13 +1,13 @@
 from rest_framework.permissions import AllowAny
 from django.contrib.auth.models import User
-from .serializers import UserSerializer, QuestionSerializer, FriendshipSerializer, FriendshipRequestSerializer
+from .serializers import UserSerializer, QuestionSerializer, FriendshipSerializer, FriendshipRequestSerializer,FriendAnswerSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
-from .models import Question,Friendship,FriendshipRequests
+from .models import Question,Friendship,FriendshipRequests,FriendAnswer
 from django.shortcuts import render, redirect, get_object_or_404
-from .permissions import IsOwner,IsFriend
+from .permissions import IsOwner,IsFriend,IsQuestionCreatorOrFriend,IsAnswerer
 from django.contrib.auth import logout
 from rest_framework import status
 from rest_framework.views import APIView
@@ -42,8 +42,9 @@ class QuestionCreateView(generics.CreateAPIView):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def QuestionList(req):
+    context = {'request': req}
     questions = Question.objects.filter(user__username=req.user)
-    serializer = QuestionSerializer(questions, many=True)
+    serializer = QuestionSerializer(questions, many=True,context=context)
     return Response(serializer.data)
 
 
@@ -127,10 +128,76 @@ class FriendQuestionRetrive(generics.RetrieveAPIView):
     
     permission_classes=(IsFriend,)
 
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def FriendQuestionList(req):
     friends=Friendship.objects.filter(from_user=req.user).values("to_user")
     questions=Question.objects.filter(user__in=friends,visible_to_friends=True)
-    serializer = QuestionSerializer(questions, many=True)
+    context = {'request': req}
+    serializer = QuestionSerializer(questions, many=True,context=context)
     return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsQuestionCreatorOrFriend])
+def QuestionAnswerList(req,**kwargs):
+    id=kwargs.get('pk')
+    answers=FriendAnswer.objects.filter(question__id=id)
+    serializer=FriendAnswerSerializer(answers,many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def UserAnswerList(req):
+    answers = FriendAnswer.objects.filter(answerer=req.user)
+    serializer = FriendAnswerSerializer(answers, many=True)
+    return Response(serializer.data)
+
+class AnswerRetriveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    
+    serializer_class = FriendAnswerSerializer
+    lookup_field = 'pk'
+    def get_queryset(self):
+        return FriendAnswer.objects.filter(id=self.kwargs.get('pk'))
+
+    def perform_update(self, serializer):
+        id = User.objects.get(username=self.request.user)
+        question = Question.objects.get(pk=self.kwargs.get('pk'))
+        serializer.save(answerer=id, question=question)
+        return serializer.validated_data
+    permission_classes=(IsAnswerer,)
+
+class AnswerCreateView(generics.CreateAPIView):
+    def get_queryset(self):
+        return FriendAnswer.objects.filter(user__username=self.request.user)
+    serializer_class = FriendAnswerSerializer
+
+    def perform_create(self, serializer):
+        id = User.objects.get(username=self.request.user)
+        question=Question.objects.get(pk=self.kwargs.get('pk'))
+        serializer.save(answerer=id,question=question)
+        return serializer.validated_data
+    permission_classes = (IsAuthenticated,)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def processAnswer(req,**kwargs):
+    id=kwargs.get('pk')
+    answer:FriendAnswer=FriendAnswer.objects.get(pk=id)
+    questioner=answer.question.user
+    
+    if req.method == "POST" and req.user == questioner:
+        if req.POST['action']=="correct":
+            answer.is_checked=True
+            answer.is_correct=True
+            answer.save()
+            return Response({"message": "Corrected succesfully"}, status=HTTPStatus.ACCEPTED)
+        elif req.POST['action'] == "incorrect":
+            answer.is_checked=True
+            answer.is_correct=False
+            answer.save()
+            return Response({"message": "Corrected succesfully"}, status=HTTPStatus.ACCEPTED)
+        else:
+            return Response({"message":"You are not allowed to perform this action"},status=HTTPStatus.FORBIDDEN)
+        
