@@ -11,4 +11,11 @@ urlpatterns=[
     path('detail/<int:pk>', views.QuestionRetriveUpdateDestroyView.as_view()),
     path('docs/', include_docs_urls(title='Question Api'),name='docs'),
     path('logout/', views.Logout.as_view()),
+    path('friends/list/',views.FriendList),
+    path('friends/requests/list/',views.FriendRequests),
+    path('friends/requests/send/<str:username>',views.SendFriendshipRequestView),
+    path('friends/requests/process/<int:pk>',views.ProcessFriendRequestView),
+    path('friends/questions/list/',views.FriendQuestionList),
+    path('friends/questions/detail/<int:pk>',views.FriendQuestionRetrive.as_view()),
+    
 ]

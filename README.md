@@ -1,4 +1,4 @@
-# An api for todo list app
+# An api for an app sharing quiz questions 
 
 - Use it for your android app,react app anything you want
-- Feel free for any new features request
+- Still under development
