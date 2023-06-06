@@ -42,11 +42,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'django_extensions',
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -130,10 +132,20 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # MEDIA_URL = '/media/'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        # 'rest_framework.authentication.BasicAuthentication',
+        # 'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 }
 ALLOWED_HOSTS=['altsabretooth1405.pythonanywhere.com','localhost']
+
+CORS_ALLOWED_ORIGINS = [
+    "https://example.com",
+    "https://sub.example.com",
+    "http://localhost:8000",
+    "http://127.0.0.1:9000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+
+]

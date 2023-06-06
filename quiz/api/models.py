@@ -3,7 +3,7 @@ from django.db import models
 from django.contrib.auth.models import User
 import datetime
 from django.utils.timezone import localtime
-
+from django.contrib import admin
 
 class Question(models.Model):
     class Month(models.TextChoices):
@@ -16,6 +16,7 @@ class Question(models.Model):
         SCI = "SCI", "SCIENCE"
         BIZ = "BIZ", "BUSINESS"
         TEC = "TEC", "TECHNOLOGY"
+        HIS = "HIS", "HISTORY"
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     category = models.CharField(
         max_length=3, choices=Month.choices, default=Month.GEN)
@@ -27,7 +28,7 @@ class Question(models.Model):
     used = models.BooleanField(default=False)
     used_for = models.TextField(default="UNASSIGNED")
     visible_to_friends = models.BooleanField(default=False)
-
+    make_answer_visible= models.BooleanField(default=False)
     def __str__(self):
         return self.question[:20]
 
@@ -43,6 +44,7 @@ class FriendAnswer(models.Model):
     def clean(self):
         self.is_cleaned = True
         if self.answerer == self.question.user:
+            print(self.answerer,self.question)
             raise ValidationError("You cannot answer your own question")
         super(FriendAnswer, self).clean()
 
@@ -54,6 +56,8 @@ class FriendAnswer(models.Model):
 
     class Meta:
         unique_together = ("question", "answerer")
+    def __str__(self):
+        return f'{self.question.question[:10]} {self.answerer.username}'
 
 class Friendship(models.Model):
     # you
@@ -63,7 +67,7 @@ class Friendship(models.Model):
         null=False,
         blank=False,
         related_name="fs_from",
-        editable=False,
+       
     )
     # your friend
     to_user = models.ForeignKey(
@@ -72,13 +76,14 @@ class Friendship(models.Model):
         null=False,
         blank=False,
         related_name="fs_to",
-        editable=False,
+       
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("from_user", "to_user")
-
+class FriendshipAdmin(admin.ModelAdmin):
+    list_display=('from_user','to_user','created_at',)
 
 class FriendshipRequests(models.Model):
     is_cleaned = False
@@ -88,7 +93,7 @@ class FriendshipRequests(models.Model):
         null=False,
         blank=False,
         related_name="fr_from",
-        editable=False,
+        
     )
     to_user = models.ForeignKey(
         User,
@@ -96,7 +101,7 @@ class FriendshipRequests(models.Model):
         null=False,
         blank=False,
         related_name="fr_to",
-        editable=False,
+        
     )
 
     created = models.DateTimeField(auto_now_add=True, editable=False)
@@ -120,3 +125,5 @@ class FriendshipRequests(models.Model):
 
     class Meta:
         unique_together = ("from_user", "to_user")
+class FriendshipRequestAdmin(admin.ModelAdmin):
+    list_display=('from_user','to_user','created','rejected','accepted','is_cleaned')

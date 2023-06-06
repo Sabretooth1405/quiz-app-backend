@@ -16,6 +16,7 @@ class IsAnswerer(permissions.BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
+        # print(obj,obj.answerer,request.user)
         return obj.answerer == request.user
 
 class IsFriend(permissions.BasePermission):

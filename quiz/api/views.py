@@ -132,6 +132,7 @@ class FriendQuestionRetrive(generics.RetrieveAPIView):
 @permission_classes([IsAuthenticated])
 def FriendQuestionList(req):
     friends=Friendship.objects.filter(from_user=req.user).values("to_user")
+    print(list(friends))
     questions=Question.objects.filter(user__in=friends,visible_to_friends=True)
     context = {'request': req}
     serializer = QuestionSerializer(questions, many=True,context=context)
@@ -141,8 +142,9 @@ def FriendQuestionList(req):
 @permission_classes([IsQuestionCreatorOrFriend])
 def QuestionAnswerList(req,**kwargs):
     id=kwargs.get('pk')
+    context = {'request': req}
     answers=FriendAnswer.objects.filter(question__id=id)
-    serializer=FriendAnswerSerializer(answers,many=True)
+    serializer=FriendAnswerSerializer(answers,many=True,context=context)
     return Response(serializer.data)
 
 
@@ -162,8 +164,9 @@ class AnswerRetriveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         id = User.objects.get(username=self.request.user)
-        question = Question.objects.get(pk=self.kwargs.get('pk'))
-        serializer.save(answerer=id, question=question)
+        pk=FriendAnswer.objects.get(id=self.kwargs.get('pk')).question.pk
+        question = Question.objects.get(pk=pk)
+        serializer.save(answerer=id, question=question,is_checked=False)
         return serializer.validated_data
     permission_classes=(IsAnswerer,)
 
@@ -188,12 +191,12 @@ def processAnswer(req,**kwargs):
     questioner=answer.question.user
     
     if req.method == "POST" and req.user == questioner:
-        if req.POST['action']=="correct":
+        if req.data.get('action')=="correct":
             answer.is_checked=True
             answer.is_correct=True
             answer.save()
             return Response({"message": "Corrected succesfully"}, status=HTTPStatus.ACCEPTED)
-        elif req.POST['action'] == "incorrect":
+        elif req.data.get('action') == "incorrect":
             answer.is_checked=True
             answer.is_correct=False
             answer.save()

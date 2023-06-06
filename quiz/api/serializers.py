@@ -34,11 +34,10 @@ class QuestionSerializer(serializers.ModelSerializer):
         data = super(QuestionSerializer, self).to_representation(data)
         username = User.objects.filter(pk=data['user']).first().username
         request = self.context['request']
-        print(self.context)
         if len(str(request.path).split('/'))>=2:
             if (str((request.path)).split('/')[2]) == "friends":
                 hide_fields = ['answer', 'answer_urls',
-                            'created_at', 'used_for', 'used']
+                             'used_for', 'used']
                 for field in hide_fields:
                     data.pop(field)
 
@@ -89,14 +88,12 @@ class FriendAnswerSerializer(serializers.ModelSerializer):
         data = super(FriendAnswerSerializer, self).to_representation(data)
         username = User.objects.filter(pk=data['answerer']).first().username
         question_obj = Question.objects.get(id=data['question'])
+        request = self.context['request']
         data['question'] = {"text": question_obj.question,
-                            "id":question_obj.id}
-        # request = self.context.get('request', None)
-        # if (str((request.path)).split('/')[2]) == "friends":
-        #     hide_fields = ['answer', 'answer_urls',
-        #                    'created_at', 'used_for', 'used']
-        #     for field in hide_fields:
-        #         data.pop(field)
-
+                            "id":question_obj.id,
+                            "user":question_obj.user.username,
+                            "make_answer_visible":question_obj.make_answer_visible}
+        if((question_obj.make_answer_visible) or (str(request.path).split('/')[2] == "answers")):
+            data['question']['answer']=question_obj.answer
         data['answerer'] = username
         return data
