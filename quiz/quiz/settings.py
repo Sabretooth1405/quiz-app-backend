@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-_4rfw9@_0&8^^k1lmm5ey8a4drx+v#f1j$c1swc6b@d$1^himc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -138,7 +138,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
 }
-ALLOWED_HOSTS=['altsabretooth1405.pythonanywhere.com','localhost']
+
 
 CORS_ALLOWED_ORIGINS = [
     "https://example.com",
