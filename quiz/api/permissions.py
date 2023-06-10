@@ -46,3 +46,14 @@ class IsQuestionCreatorOrFriend(permissions.BasePermission):
         question=Question.objects.get(id=question_id)
         question_user=question.user
         return question_user==curr_user
+
+class IsFriendInRequest(permissions.BasePermission):
+     """
+    Custom permission to only allow friend to delete requests
+    """
+     def has_permission(self, request, view):
+          curr_user=request.user
+          user1 = view.kwargs.get('username1')
+          user2 = view.kwargs.get('username2')
+          return curr_user==user1 or curr_user==user2
+          

@@ -7,11 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 from .models import Question,Friendship,FriendshipRequests,FriendAnswer
 from django.shortcuts import render, redirect, get_object_or_404
-from .permissions import IsOwner,IsFriend,IsQuestionCreatorOrFriend,IsAnswerer
+from .permissions import IsOwner,IsFriend,IsQuestionCreatorOrFriend,IsAnswerer,IsFriendInRequest
 from django.contrib.auth import logout
 from rest_framework import status
 from rest_framework.views import APIView
 from http import HTTPStatus
+from django.db.models import Q,QuerySet
 
 class UserCreateAPIView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -44,6 +45,9 @@ class QuestionCreateView(generics.CreateAPIView):
 def QuestionList(req):
     context = {'request': req}
     questions = Question.objects.filter(user__username=req.user)
+    q=req.query_params.get('q')
+    if q is not None:
+        questions=questions.filter(Q(question__icontains=q)|Q(category__icontains=q))
     serializer = QuestionSerializer(questions, many=True,context=context)
     return Response(serializer.data)
 
@@ -97,14 +101,14 @@ def SendFriendshipRequestView(request, username):
     )
     if not created:
         return Response(status=HTTPStatus.ALREADY_REPORTED)
-    return Response(status=HTTPStatus.ACCEPTED)
+    return Response({"message: request sent"},status=HTTPStatus.ACCEPTED)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def ProcessFriendRequestView(request, pk):
     fr: FriendshipRequests = get_object_or_404(FriendshipRequests, pk=pk)
     if request.method == "POST" and fr.to_user == request.user:
-        if request.POST["action"] == "accept":
+        if request.data["action"] == "accept":
             Friendship.objects.get_or_create(
                 from_user=fr.from_user, to_user=fr.to_user)
             Friendship.objects.get_or_create(
@@ -113,7 +117,7 @@ def ProcessFriendRequestView(request, pk):
             fr.save()
             return Response({"message":"Request accepted succesfully"},status=HTTPStatus.ACCEPTED)
 
-        if request.POST["action"] == "reject":
+        if request.data["action"] == "reject":
             fr.rejected = True
             fr.save()
             return Response({"message":"Request rejected succesfully"},status=HTTPStatus.ACCEPTED)
@@ -132,7 +136,6 @@ class FriendQuestionRetrive(generics.RetrieveAPIView):
 @permission_classes([IsAuthenticated])
 def FriendQuestionList(req):
     friends=Friendship.objects.filter(from_user=req.user).values("to_user")
-    print(list(friends))
     questions=Question.objects.filter(user__in=friends,visible_to_friends=True)
     context = {'request': req}
     serializer = QuestionSerializer(questions, many=True,context=context)
@@ -204,3 +207,59 @@ def processAnswer(req,**kwargs):
         else:
             return Response({"message":"You are not allowed to perform this action"},status=HTTPStatus.FORBIDDEN)
         
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def userObjectList(req,**kwargs):
+    id=kwargs.get('username')
+    context={"username":id}
+    users=User.objects.all()
+    q=req.query_params.get('q')
+    if q is not None:
+        users=users.filter(Q(username__icontains=q))
+    serializer=UserSerializer(users,many=True,context=context)
+    return Response(serializer.data)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def deleteFriendships(req,**kwargs):
+    user1=str(req.user)
+    user2=kwargs.get('username')
+    fr1:Friendship=get_object_or_404(Friendship,from_user__username=user1,to_user__username=user2)
+    print(user1)
+    fr2:Friendship=get_object_or_404(Friendship,from_user__username=user2,to_user__username=user1)
+    fr1.delete()
+    fr2.delete()
+    return Response({"message: succesfully deleted friendship"},HTTPStatus.ACCEPTED)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def userStats(req,**kwargs):
+    current_user=str(req.user)
+    friends:QuerySet=Friendship.objects.filter(Q(to_user__username=current_user))
+    questions:QuerySet=Question.objects.filter(user__username=current_user)
+    answers:QuerySet=FriendAnswer.objects.filter(answerer__username=current_user)
+    requested_user=kwargs.get('username')
+    if (current_user==requested_user):
+        response={
+            "answer_count":answers.count(),
+            "question_count":questions.count(),
+            "friends_count":friends.count(),
+            "is_same_user": True,
+        }
+        return Response(response,HTTPStatus.OK)
+    requested_user_friends:QuerySet=Friendship.objects.filter(Q(to_user__username=requested_user))
+    requeted_user_questions:QuerySet=Question.objects.filter(user__username=requested_user)
+    requested_user_answers:QuerySet=FriendAnswer.objects.filter(answerer__username=requested_user)
+    common_friends=QuerySet.intersection(friends.values_list('from_user'),requested_user_friends.values_list('from_user'))
+    is_friend:QuerySet=Friendship.objects.filter(to_user__username=requested_user,from_user__username=current_user).exists()
+    current_user_questions_answered:QuerySet=FriendAnswer.objects.filter(question__user__username=current_user,answerer__username=requested_user)
+    response={
+            "answer_count":requested_user_answers.count(),
+            "question_count":requeted_user_questions.count(),
+            "friends_count":requested_user_friends.count(),
+            "is_same_user": False,
+            "is_friend":is_friend,
+            "common_friends_count":common_friends.count(),
+            "current_user_questions_answered_count":current_user_questions_answered.count()
+        }
+    return Response(response,HTTPStatus.OK)

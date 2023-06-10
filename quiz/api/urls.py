@@ -22,5 +22,7 @@ urlpatterns=[
     path('myanswers/',views.UserAnswerList),
     path('answers/detail/<int:pk>',views.AnswerRetriveUpdateDestroyView.as_view()),
     path('answers/process/<int:pk>',views.processAnswer),
-
+    path('user-list/<str:username>',views.userObjectList),
+    path('friends/delete/<str:username>',views.deleteFriendships),
+    path('users/detail/<str:username>',views.userStats)
 ]

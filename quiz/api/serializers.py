@@ -18,7 +18,30 @@ class UserSerializer(serializers.ModelSerializer):
         user = super(UserSerializer, self).create(validated_data)
         user.set_password(validated_data['password'])
         user.save()
+        admin=User.objects.get(pk=1)
+        fr1=Friendship.objects.create(from_user=user, to_user=admin)
+        fr2=Friendship.objects.create(from_user=admin, to_user=user)
+        fr1.save()
+        fr2.save()
         return user
+    def to_representation(self, data):
+        data = super(UserSerializer, self).to_representation(data)
+        username=self.context.get('username')
+        id=data['id']
+        if(username is not None):
+            is_friend=Friendship.objects.filter(from_user__username=username,to_user__id=id).first()
+            if (is_friend is not None):
+                data['is_friend']=True
+            else:
+                data['is_friend']=False
+            is_request_sent=FriendshipRequests.objects.filter(from_user__username=username,to_user__id=id,rejected=False,
+                                                              accepted=False)
+            if (is_request_sent.exists()):
+                data['is_request_sent']=True
+            else:
+                data['is_request_sent']=False
+        return data         
+
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -33,13 +56,20 @@ class QuestionSerializer(serializers.ModelSerializer):
     def to_representation(self, data):
         data = super(QuestionSerializer, self).to_representation(data)
         username = User.objects.filter(pk=data['user']).first().username
-        request = self.context['request']
+        request = self.context.get('request')
         if len(str(request.path).split('/'))>=2:
             if (str((request.path)).split('/')[2]) == "friends":
                 hide_fields = ['answer', 'answer_urls',
                              'used_for', 'used']
                 for field in hide_fields:
                     data.pop(field)
+                is_answered=FriendAnswer.objects.filter(question__id=data['id'],
+                                                        answerer__username=request.user)
+                
+                if(is_answered.exists()):
+                    data['is_answered']=True
+                else:
+                    data['is_answered']=False
 
         data['user'] = username
         return data
@@ -88,12 +118,13 @@ class FriendAnswerSerializer(serializers.ModelSerializer):
         data = super(FriendAnswerSerializer, self).to_representation(data)
         username = User.objects.filter(pk=data['answerer']).first().username
         question_obj = Question.objects.get(id=data['question'])
-        request = self.context['request']
+        request = self.context.get('request')
         data['question'] = {"text": question_obj.question,
                             "id":question_obj.id,
                             "user":question_obj.user.username,
                             "make_answer_visible":question_obj.make_answer_visible}
-        if((question_obj.make_answer_visible) or (str(request.path).split('/')[2] == "answers")):
-            data['question']['answer']=question_obj.answer
+        if(request is not None):
+            if((question_obj.make_answer_visible) or (str(request.path).split('/')[2] == "answers")):
+                data['question']['answer']=question_obj.answer
         data['answerer'] = username
         return data
